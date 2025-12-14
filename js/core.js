@@ -353,8 +353,12 @@ function getCharImagePath(src) {
         roleSpan.textContent = currentCharacterName || "고스트";
       }
 
-      const textSpan = document.createElement("span");
-      textSpan.textContent = text;
+            const textSpan = document.createElement("span");
+      if (typeof renderTextWithEmojis === "function") {
+        renderTextWithEmojis(text, textSpan);
+      } else {
+        textSpan.textContent = text;
+      }
       div.appendChild(roleSpan);
       div.appendChild(textSpan);
       logEl.appendChild(div);
@@ -655,7 +659,7 @@ function boostWaveBackground() {
       const nextHoliday = daysUntilHoliday();
 
       const tips = [
-        "대화창 아래 플러스(+) 버튼을 누르면, 가르치기나 캐릭터 변경 같은 추가 기능도 쓸 수 있어요.",
+        "대화창 아래 플러스(+) 버튼을 누르면, 가르치기 같은 추가 기능도 쓸 수 있어요.",
         "이야기를 자주 하다 보면, 내가 점점 더 당신 말투에 익숙해질지도 몰라요.",
         "가르치기 기능으로 특정 문장에 대한 대답을 직접 알려줄 수도 있어요.",
         "심심하면 그냥 오늘 있었던 일을 아무 말이나 털어놔도 괜찮아요.",
@@ -1029,6 +1033,24 @@ async function handleUserSubmit() {
           }
         } catch (e) {
           console.warn("handleGhostHideCommand error", e);
+        }
+      }
+
+      // [옵션 기능] 캐릭터-톡에서 실시간 톡(메신저) 열기 명령어
+      // - js/messenger-chat-command.js 에서 handleMessengerCommand(text, compact)를 제공할 때만 동작합니다.
+      // - 이 기능이 필요 없다면 messenger-chat-command.js 파일과 아래 if 블록 전체를 삭제해도 됩니다.
+      if (typeof handleMessengerCommand === "function") {
+        try {
+          const __handledByMessengerCommand = handleMessengerCommand(text, compact);
+          if (__handledByMessengerCommand) {
+            userInput.value = "";
+            if (typeof resetSleepTimer === "function") {
+              resetSleepTimer();
+            }
+            return;
+          }
+        } catch (e) {
+          console.warn("handleMessengerCommand error", e);
         }
       }
 

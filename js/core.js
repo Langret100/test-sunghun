@@ -274,7 +274,7 @@ const CHARACTERS = {
   },
   minsu: {
     key: "minsu",
-    name: "해찌",
+    name: "아라",
     basePath: "images/emotions_ma1/",
     intro: (name) => name + "야. 오늘도 같이 놀아볼까?",
   },

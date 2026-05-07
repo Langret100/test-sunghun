@@ -15,6 +15,7 @@
 
 const SHEET_CSV_URL = "https://script.google.com/macros/s/AKfycbz6PjWqKuoTmTalX7ieq3NuhJr-6DPwFQI3c7sDCu9cSCFDt90DP4Ju0yIjfjOgyNoI6w/exec";
 const SHEET_WRITE_URL = "https://script.google.com/macros/s/AKfycbz6PjWqKuoTmTalX7ieq3NuhJr-6DPwFQI3c7sDCu9cSCFDt90DP4Ju0yIjfjOgyNoI6w/exec";
+window.SHEET_WRITE_URL = SHEET_WRITE_URL; // ui.js 등에서 window.SHEET_WRITE_URL 참조용
 
     
 const SPREADSHEET_URL = SHEET_CSV_URL;
@@ -418,7 +419,7 @@ const CHARACTERS = {
   },
   minsu: {
     key: "minsu",
-    name: "해찌",
+    name: 해찌",
     basePath: "images/emotions_ma1/",
     intro: (name) => {
       const lines = [
@@ -457,6 +458,10 @@ function setCurrentCharacter(key) {
   } catch (e) {
     // 저장 실패는 무시
   }
+  // 캐릭터 변경 이벤트 발행 → fcm-push.js가 DB의 char_name/char_icon 갱신
+  try {
+    window.dispatchEvent(new CustomEvent("ghost:character-changed", { detail: { key: key, name: ch.name } }));
+  } catch (_ce) {}
   // AR 카메라가 열려 있다면, 거기에도 캐릭터 변경을 반영
   try {
     if (typeof window.__updateARCharacterSprite === "function") {
@@ -1572,6 +1577,8 @@ function getLearnedDialogResponse(text) {
   const freshPool = pool.filter(function (item) {
     return recentLines.indexOf(String(item.reaction.message || '').trim()) === -1;
   });
+  // freshPool이 있으면 미사용 답변 우선, 없으면 모든 답변이 최근 사용됨
+  const allLinesRecent = freshPool.length === 0;
   if (freshPool.length) pool = freshPool;
 
   const pickedEntry = pool[Math.floor(Math.random() * pool.length)] || pool[0];
@@ -1584,7 +1591,8 @@ function getLearnedDialogResponse(text) {
     score: pickedEntry.score,
     trigger: picked.trigger,
     matchType: pickedEntry.matchType || "",
-    triggerLength: pickedEntry.triggerLength || normalizeLearnText(picked.trigger).length
+    triggerLength: pickedEntry.triggerLength || normalizeLearnText(picked.trigger).length,
+    allLinesRecent: allLinesRecent  // 모든 답변이 최근 사용된 경우 표시
   });
 }
 
@@ -2216,18 +2224,37 @@ async function getUnifiedCharacterChatResponse(text, options = {}) {
   const learnedIsShortPartial = !!(learnedResp && learnedResp.matchType !== "exact" && Number(learnedResp.triggerLength || 0) <= 2);
   const builtinLooksReliable = !!(builtinResp && builtinResp.line && !isGenericUnknownBuiltinResponse(builtinResp));
   if (exactLearnedMatch && learnedIsExact && learnedResp.line && repeatedInputCount <= 0) {
+    // 시트 답변이 1개뿐이고 최근에 이미 사용됐으면 → continuity(내장 패턴)로 보완
+    if (learnedResp.allLinesRecent && typeof getContinuityResponse === "function") {
+      // learnedReactions 빈 배열로 전달 → 내장 패턴만 사용해 다른 반응 유도
+      const altResp = getContinuityResponse(raw, []);
+      if (altResp && altResp.line && altResp.line !== learnedResp.line) {
+        // 50% 확률로 내장 패턴 답변 사용 (시트 답변과 번갈아 다양성 확보)
+        if (Math.random() < 0.5) {
+          rememberUserInput(raw);
+          rememberDialogLine(altResp.line, altResp.source || "continuity");
+          const safeEmo = (typeof EMO !== "undefined" && EMO && EMO[altResp.emotion]) ? altResp.emotion : "경청";
+          return { emotion: safeEmo, line: altResp.line };
+        }
+      }
+    }
     rememberUserInput(raw);
     rememberDialogLine(learnedResp.line, "learned");
     return { emotion: learnedResp.emotion || "경청", line: learnedResp.line };
   }
 
+  // ── 기존 혼합 후보 선택 (학습/내장 모두 신뢰 가능한 경우) ──────────────────
   const mixed = chooseDialogResponseCandidate([
     (!builtinLooksReliable || !learnedIsShortPartial) && learnedResp && learnedResp.line ? Object.assign({ source: "learned" }, learnedResp) : null,
     builtinResp && builtinResp.line ? Object.assign({ source: "builtin" }, builtinResp) : null
   ]);
   if (mixed && mixed.line) {
-    rememberUserInput(raw);
-    return { emotion: mixed.emotion, line: mixed.line };
+    // mixed가 generic_unknown 계열인지 체크 — 해당하면 연속성 로직으로 넘김
+    const mixedIsGeneric = isGenericUnknownBuiltinResponse(mixed);
+    if (!mixedIsGeneric) {
+      rememberUserInput(raw);
+      return { emotion: mixed.emotion, line: mixed.line };
+    }
   }
 
   const shortResp = getShortInputFallbackResponse(raw);
@@ -2243,6 +2270,22 @@ async function getUnifiedCharacterChatResponse(text, options = {}) {
     return { emotion: "기쁨", line: callLine };
   }
 
+  // ── 4단계 대화 연속성 로직 (dialog-continuity.js) ────────────────────────
+  // learnedResp / builtinResp 모두 없거나 generic_unknown 일 때 실행
+  if (typeof getContinuityResponse === "function") {
+    const contResp = getContinuityResponse(raw, learnedReactions);
+    if (contResp && contResp.line) {
+      rememberUserInput(raw);
+      rememberDialogLine(contResp.line, contResp.source || "continuity");
+      // 감정 이미지 연동: EMO에 있는 감정이면 그대로, 없으면 "경청"
+      const safeEmotion = (typeof EMO !== "undefined" && EMO && EMO[contResp.emotion])
+        ? contResp.emotion
+        : "경청";
+      return { emotion: safeEmotion, line: contResp.line };
+    }
+  }
+
+  // ── 최후 안전망 ───────────────────────────────────────────────────────────
   const fallbackLine = "응, 듣고 있어. 조금만 더 자세히 말해줘.";
   rememberUserInput(raw);
   rememberDialogLine(fallbackLine, "builtin");
@@ -2281,6 +2324,9 @@ window.addEventListener("message", async function (ev) {
     else if (method === "getUnifiedCharacterChatResponse") result = await getUnifiedCharacterChatResponse(args[0], args[1] || {});
     else if (method === "getCharacterChatResponse") result = await getCharacterChatResponse(args[0]);
     else if (method === "ensureLearnedReactionsReady") result = await ensureLearnedReactionsReady();
+    else if (method === "getCurrentCharacterFaceImg") {
+      try { const emo = EMO[currentEmotion]; result = (emo && emo.base) ? emo.base : (EMO["기본대기"] ? EMO["기본대기"].base : "images/emotions/기본대기1.png"); } catch(e) { result = "images/emotions/기본대기1.png"; }
+    }
     source.postMessage({ type: "WG_CORE_BRIDGE_RESPONSE", requestId, ok: true, result }, "*");
   } catch (err) {
     source.postMessage({
@@ -2299,11 +2345,20 @@ window.GhostCoreBridge = Object.assign({}, window.GhostCoreBridge || {}, {
   getUnifiedCharacterChatResponse: getUnifiedCharacterChatResponse,
   extractCharacterCallText: extractCharacterCallText,
   getCurrentCharacterName: function(){ return currentCharacterName || "고스트"; },
+  getCurrentCharacterFaceImg: function(){
+    // 현재 감정의 얼굴 이미지 경로 반환 (메신저 아바타 용)
+    try {
+      var emo = EMO[currentEmotion];
+      if (emo && emo.base) return emo.base;
+      if (EMO["기본대기"] && EMO["기본대기"].base) return EMO["기본대기"].base;
+    } catch(e) {}
+    return "images/emotions/기본대기1.png";
+  },
   getDateTimeResponse: function(text){ const req = detectDateTimeRequest(text); return req ? buildDateTimeResponse(req) : null; }
 });
 window.tryHandleMessengerVoiceCommand = tryHandleMessengerVoiceCommand;
 
-async function handleUserSubmit() {
+window.handleUserSubmit = async function handleUserSubmit() {
       if (shutdown) return;
       const text = userInput.value.trim();
       if (!text) return;
@@ -2759,7 +2814,7 @@ if (
         }
       }
 
-      if (!shouldOfferTeach && mixedResp && mixedResp.emotion) {
+      if (!shouldOfferTeach && mixedResp && mixedResp.emotion && !isGenericUnknownBuiltinResponse(mixedResp)) {
         rememberUserInput(normalizedUserText);
         setEmotion(mixedResp.emotion, mixedResp.line || null, { source: mixedResp.source || "builtin" });
         lastUnknownKey = null;
@@ -2802,7 +2857,20 @@ if (
         return;
       }
 
-      // 일반적인 '모르는 말' 대응 (짧고 자연스럽게)
+      // 일반적인 '모르는 말' 대응 - 먼저 4단계 연속성 로직 시도
+      if (typeof getContinuityResponse === "function") {
+        const contResp = getContinuityResponse(strippedCommandText || text, learnedReactions);
+        if (contResp && contResp.line) {
+          rememberUserInput(normalizedUserText);
+          const safeEmotion = (typeof EMO !== "undefined" && EMO && EMO[contResp.emotion])
+            ? contResp.emotion : "경청";
+          setEmotion(safeEmotion, contResp.line, { source: contResp.source || "continuity" });
+          lastUnknownKey = null;
+          lastUnknownCount = 0;
+          return;
+        }
+      }
+
       const shortFallback = getShortInputFallbackResponse(strippedCommandText || text);
       if (shortFallback && shortFallback.line) {
         rememberUserInput(normalizedUserText);

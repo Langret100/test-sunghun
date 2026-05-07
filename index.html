@@ -5,6 +5,11 @@
   <title>마이파이</title>
    <link rel="icon" href="./favicon.ico"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#4caf50">
   <link rel="stylesheet" href="css/ghost.css">
 
 <style>
@@ -64,8 +69,48 @@ body.is-game-mode #ghost {
 .notebook-overlay .memo-label {
   font-size: 15px;
 }
+
+
+
+
+/* ── 전체화면 토글 버튼 (우측 상단, 구버전 코너 스타일) ── */
+#topLogoBtn {
+  position: fixed;
+  right: 10px;
+  top: 8px;
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  outline: none;
+  padding: 0;
+  cursor: pointer;
+  z-index: 8000;
+}
+#topLogoBtn::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  right: 4px;
+  bottom: 4px;
+  border-radius: 4px;
+  border-top: 2px solid rgba(255, 255, 255, 0.38);
+  border-right: 2px solid rgba(255, 255, 255, 0.38);
+  border-left: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  pointer-events: none;
+}
+#topLogoBtn:hover::before {
+  border-top-color: rgba(255, 255, 255, 0.85);
+  border-right-color: rgba(255, 255, 255, 0.85);
+}
+
 </style></head>
 <body>
+<!-- 전체화면 토글 버튼 (우측 상단 코너) -->
+<button id="topLogoBtn" aria-label="전체화면"></button>
+
 <!-- [옵션 기능] 게임 전체화면 오버레이 -->
 <div id="gameOverlay" class="game-overlay hidden">
   <div class="game-topbar">
@@ -122,7 +167,7 @@ body.is-game-mode #ghost {
               <button data-action="help">📖 사용 설명서</button>
               <button data-action="bgselect">🎨 배경 선택</button>
               <button data-action="menu">📔 메뉴</button>
-                            <button data-action="login">🔑 로그인</button>
+                            <button id="plusLoginBtn" data-action="login">🔑 로그인</button>
 <button data-action="settings">🔊 읽어주기</button>
 <button id="plusBarobaroBtn" data-action="barobaro">🎙️ 바로바로! <span class="barobaro-state" id="barobaroStateLabel">꺼짐</span></button>
             </div>
@@ -247,7 +292,6 @@ body.is-game-mode #ghost {
 
   <script src="js/emotion.js"></script>
   <script src="js/global-interaction-guard.js"></script>
-  <script src="js/ui.js"></script>
   <!-- [옵션 기능] 말풍선 음성 읽어주기(TTS) 모듈 -->
   <script src="js/tts-voice.js"></script>
   <!-- [옵션 기능] 보내기 버튼 길게 눌러 음성 인식 입력 모듈 -->
@@ -333,16 +377,16 @@ body.is-game-mode #ghost {
 </div>
 
 
-
--save.js"></script>
   <script src="js/teach.js"></script>
   <script src="js/map.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/dialog.js"></script>
+  <script src="js/dialog-continuity.js"></script><!-- 대화 연속성 강화 엔진 -->
   <script src="js/chat-emoji.js"></script>
   <script src="js/mypai-adbar-gdrive.js"></script>
   <script src="js/startup.js"></script>
   <script src="js/core.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/ghost-hide.js"></script>
   <script src="js/messenger-chat-command.js"></script>
   
@@ -410,9 +454,15 @@ body.is-game-mode #ghost {
   <!-- [옵션 기능] 오늘의 운세 모듈 -->
   <script src="js/fortune-today.js"></script>
   <!-- [옵션 기능] 전체 화면 토글 버튼 모듈 -->
+  <script src="js/pwa-manager.js"></script>
+  <script src="js/profile-manager.js"></script>
   <script src="js/fullscreen-toggle.js"></script>
   <script src="js/mail-notify.js"></script>
   <script src="js/game-math-explorer-report.js"></script>
+
+  <!-- [옵션 기능] 3D 패럴랙스 입체감 효과 모듈 -->
+  <!-- 끄고 싶으면 이 줄과 js/parallax-3d.js 파일을 삭제하세요. -->
+  <script src="js/parallax-3d.js"></script>
 
 
   <!-- [옵션 기능] 소통 채팅 (Firebase Realtime Database 연동)
@@ -422,7 +472,10 @@ body.is-game-mode #ghost {
   -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <script src="js/social-chat-firebase.js"></script>
+  <!-- [옵션 기능] FCM 웹 푸시 알림 모듈 -->
+  <script src="js/fcm-push.js"></script>
   <script src="js/always-listen.js"></script>
 
   <!-- [옵션 기능] 실시간 톡(메신저) 답글 말풍선 알림 (메신저를 열지 않았을 때)

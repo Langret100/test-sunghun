@@ -191,12 +191,12 @@ body.is-game-mode #ghostContainer {
     }
     #bubbleWrapper.hidden {
       opacity: 0;
-      transform: translate(var(--bubble-shift-x, 0), 4px);
+      transform: translate3d(calc(var(--bubble-shift-x, 0px) + var(--plx-x, 0px)), calc(4px + var(--plx-y, 0px)), 0);
       transition: opacity 0.18s ease-out, transform 0.18s ease-out;
     }
     #bubbleWrapper.visible {
       opacity: 1;
-      transform: translate(var(--bubble-shift-x, 0), 0);
+      transform: translate3d(calc(var(--bubble-shift-x, 0px) + var(--plx-x, 0px)), var(--plx-y, 0px), 0);
       transition: opacity 0.18s ease-out, transform 0.18s ease-out;
     }
 
@@ -489,20 +489,21 @@ body.is-game-mode #ghostContainer {
 /* 반응형 */
     @media (max-width: 768px) {
       #ghostContainer {
-        right: -110px;
-        bottom: 80px; /* 모바일: 네비게이션 바 위쪽으로 조금만 띄우기 */
+        right: -130px;
+        bottom: 80px;
         width: 216px;
         height: 216px;
-        transform: scale(2.0);
+        transform: scale(2.4);
         transform-origin: bottom right;
+        overflow: visible;
       }
       #ghost {
         width: 216px;
         height: 216px;
       }
       #bubbleWrapper {
-        right: 190px; /* 모바일: 말풍선을 캐릭터 쪽으로 조금 더 이동 */
-        bottom: 430px; /* 모바일: 전체 레이아웃과 함께 조금 아래로 내림 */
+        right: 210px; /* scale(2.4) 기준 캐릭터 왼쪽에 말풍선 위치 */
+        bottom: 480px; /* scale(2.4) 기준 캐릭터 머리 위 */
       }
       #chatDock {
         width: 98vw;
@@ -945,7 +946,7 @@ body {
   justify-content: center;
   pointer-events: none;
   opacity: 0;
-  transition: none;
+  transition: opacity 0.2s ease-out;
 }
 
 /* 수첩(메뉴) 카드 공통 레이아웃 - 화면 중앙 카드형 */
@@ -970,7 +971,10 @@ body {
 }
 
 .notebook-backdrop {
-  display: none;
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  cursor: default;
 }
 
 
@@ -1154,7 +1158,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 998;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -1162,7 +1166,12 @@ body {
   transition: opacity 0.18s ease-out;
 }
 
+.board-panel.hidden {
+  display: none;
+}
+
 .board-panel.open {
+  display: flex;
   pointer-events: auto;
   opacity: 1;
 }
@@ -1171,20 +1180,19 @@ body {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
+  pointer-events: none; /* 클릭은 board-panel에서 처리 */
 }
 
 .board-inner {
-  /* 게시판 본체: 화면 하단을 기준으로 고정 배치
-     - 예전처럼 '아래에서 올라오는 패널' 느낌은 유지하되,
-       화면 중앙 쪽으로 조금 더 올리고 내부 스크롤을 허용합니다.
-     - 이 파일을 삭제한다면 게시판 관련 JS 모듈(js/ui.js, js/board-write-modal.js)의
-       연동 코드도 함께 삭제해도 됩니다. */
-  position: fixed;
-  left: 50%;
-  bottom: 60px;            /* 살짝 더 위로 올려 화면 중앙에 가깝게 */
-  transform: translateX(-50%);
-  width: min(860px, 80vw); /* 약 10% 축소 + 좌우 여백 유지 */
-  max-height: 78vh;        /* 안내 문구까지 패널 안에 들어오도록 높이를 조금 더 확보 */
+  /* 게시판 본체: board-panel(flex container) 안에서 중앙 배치
+     - position:fixed → relative 로 변경하여 board-panel click 이벤트가 정상 동작하도록 함
+     - 외부(배경) 클릭 시 닫힘이 작동하려면 board-inner가 board-panel의 진짜 자식이어야 함 */
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: min(860px, 80vw);
+  max-height: 78vh;
   background: #fdfbf7;
   border-radius: 16px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.35);
@@ -1192,7 +1200,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow: hidden;        /* 패널 밖으로 요소가 삐져나오지 않도록 고정 */
+  overflow: hidden;
 }
   gap: 16px;
   transform: translateX(-50%);
@@ -1404,9 +1412,16 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-out;
 }
 .login-panel.hidden {
   display: none;
+}
+.login-panel.open {
+  opacity: 1;
+  pointer-events: auto;
 }
 .login-backdrop {
   position: absolute;
@@ -1632,7 +1647,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1100;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
@@ -1641,6 +1656,7 @@ body {
 }
 
 .attendance-overlay.open {
+  display: flex;
   pointer-events: auto;
   opacity: 1;
 }
@@ -1806,7 +1822,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1200;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   opacity: 0;
@@ -1815,6 +1831,7 @@ body {
 }
 
 .letter-overlay.open {
+  display: flex;
   opacity: 1;
   pointer-events: auto;
 }
@@ -1842,7 +1859,7 @@ body {
 .letter-header {
   display: flex;
   align-items: center;
-  justify-content: stretch;
+  justify-content: space-between;
   margin-bottom: 2px;
 }
 
@@ -1850,6 +1867,7 @@ body {
   font-size: 18px;
   font-weight: 700;
   color: #4c2b20;
+  flex: 1;
 }
 
 .letter-close {
@@ -1859,6 +1877,8 @@ body {
   line-height: 1;
   cursor: pointer;
   color: #8b5a3c;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .letter-body {
@@ -2326,8 +2346,10 @@ body {
   .clock-widget {
     top: 10px;
     left: 14px;
-    font-size: 40px;
+    font-size: 48px;
     letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.72);
+    text-shadow: 0 0 12px rgba(255,255,255,0.55), 0 2px 6px rgba(0,0,0,0.4);
   }
 }
 
@@ -2345,20 +2367,28 @@ body {
   inset: 0;
   z-index: 99990;
   display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
 }
 .attendance-overlay.open {
-  display: block;
+  display: flex;
+  pointer-events: auto;
+  opacity: 1;
 }
 .attendance-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.40);
+  cursor: default;
 }
 .attendance-panel {
-  position: absolute;
-  top: 28%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
   width: min(480px, 90vw);
   background: #fdfaf4;
   border-radius: 18px;
@@ -3223,4 +3253,158 @@ body.always-listen-center #bubbleWrapper .bubble::after {
   background: #6ea8ff;
   color: #0f1a2d;
   font-weight: 700;
+}
+
+
+/* ==============================
+   모바일: + 버튼을 항상 inputRow 안 sendBtn 우측에 배치
+   ============================== */
+@media (max-width: 768px) {
+  /* + 버튼: fixed 해제, inputRow 내 인라인 배치 */
+  .ghost-plus-wrapper {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: auto;
+    flex-shrink: 0;
+  }
+  #ghostPlus {
+    opacity: 1;
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+  /* 입력칸 폭 줄이기 — flex:1 유지하되 min-width 줄임 */
+  #userInput {
+    min-width: 0;
+    font-size: 14px;
+    padding: 8px 10px;
+  }
+  /* sendBtn 소폭 축소 */
+  #sendBtn {
+    padding: 7px 10px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  /* + 메뉴: 위쪽으로 펼쳐지도록 */
+  #plusMenu {
+    top: auto;
+    bottom: 44px;
+    left: auto;
+    right: 0;
+  }
+
+  /* 소통 모드: 이모티콘 버튼 숨김 */
+  #chatPanel.chat-panel-social .emoji-wrapper {
+    display: none !important;
+  }
+}
+
+/* ==============================
+   로그인 자동 완료 오버레이(이미 로그인 상태에서 1회 표시)
+   ============================== */
+#loginPanel.autoclose-mode .login-inner {
+  opacity: 0;
+  pointer-events: none;
+}
+#loginPanel.autoclose-mode .login-logo-floating {
+  opacity: 0;
+}
+.login-auto-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1400;
+}
+.login-auto-overlay.hidden {
+  display: none;
+}
+.login-auto-card {
+  background: #fffdf7;
+  border-radius: 16px;
+  padding: 18px 22px;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.25);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════════════════
+   parallax-3d.js — CSS 변수 기반 패럴랙스 오프셋
+   JS가 --plx-x / --plx-y 값만 업데이트하면
+   각 요소가 기존 transform에 translate를 합산한다.
+   기존 transform은 절대 덮어쓰지 않는다.
+   ═══════════════════════════════════════════════════════ */
+
+/* 초기값 */
+#bg-container, #waveBackground, #snowLayer,
+#ghostContainer, #bubbleWrapper,
+#chatDock,
+#clockWidget, #questStatusBar,
+#notebook-menu-overlay, #boardPanel, #manualPanel,
+#teachModal, #bgSelectPanel, #boardWriteModal {
+  --plx-x: 0px;
+  --plx-y: 0px;
+}
+
+/* L1 배경 — 패럴랙스 이동 시 가장자리 노출 방지: 110% 크기로 중앙 기준 표시 */
+#waveBackground {
+  width: 110%;
+  height: 110%;
+  top: -5%;
+  left: -5%;
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
+}
+/* bg-container: 110% 크기, 중앙 기준, 패럴랙스 이동 합산 */
+#bg-container {
+  width: 110% !important;
+  height: 110% !important;
+  top: -5% !important;
+  left: -5% !important;
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
+}
+
+/* L1-b 눈 배경 레이어 */
+#snowLayer {
+  width: 110%;
+  height: 110%;
+  top: -5%;
+  left: -5%;
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
+}
+
+/* L2 캐릭터 — PC: translate만, 모바일: scale(2.4) + translate 합산 */
+#ghostContainer {
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
+}
+@media (max-width: 768px) {
+  #ghostContainer {
+    transform: scale(2.4) translate3d(var(--plx-x), var(--plx-y), 0);
+    transform-origin: bottom right;
+    overflow: visible;
+  }
+}
+
+/* L3 채팅창 — 기존 translateX(-50%) 유지 + 패럴랙스 합산 */
+#chatDock {
+  transform: translateX(calc(-50% + var(--plx-x))) translateY(var(--plx-y));
+}
+
+/* L3-b 시계 + 퀘스트바 */
+#clockWidget {
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
+}
+#questStatusBar {
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
+}
+
+/* L4 작은 패널 — 기존 transform 없음 */
+#notebook-menu-overlay,
+#boardPanel,
+#manualPanel,
+#teachModal,
+#bgSelectPanel,
+#boardWriteModal {
+  transform: translate3d(var(--plx-x), var(--plx-y), 0);
 }

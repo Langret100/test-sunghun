@@ -419,7 +419,7 @@ const CHARACTERS = {
   },
   minsu: {
     key: "minsu",
-    name: 해찌",
+    name: "해찌",
     basePath: "images/emotions_ma1/",
     intro: (name) => {
       const lines = [
